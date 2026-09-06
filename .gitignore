@@ -7,3 +7,5 @@ node_modules/
 .DS_Store
 data/*.sh
 data/*.out
+# built databases are committed explicitly once final (see README); intermediate builds are ignored
+app/assets/db/*.db
