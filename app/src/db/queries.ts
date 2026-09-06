@@ -57,11 +57,26 @@ export async function getEntities(kind: Kind, ids: number[]): Promise<Map<number
   return out;
 }
 
+const BLOCK_CACHE_MAX = 6;
+const blockCache = new Map<string, Record<string, unknown>>();
+
+/** Detail JSON is stored in compressed blocks of consecutive ids; blocks are cached after inflating. */
 export async function getDetail<T = Record<string, unknown>>(kind: Kind, id: number): Promise<T | null> {
-  const row = await getDataDb().getFirstAsync<{ data: Uint8Array }>('SELECT data FROM details WHERE kind = ? AND id = ?', kind, id);
-  if (!row) return null;
-  return inflateJson<T>(row.data);
+  const row = await getDataDb().getFirstAsync<{ min_id: number; max_id: number; data: Uint8Array }>(
+    'SELECT min_id, max_id, data FROM blocks WHERE kind = ? AND min_id <= ? ORDER BY min_id DESC LIMIT 1', kind, id,
+  );
+  if (!row || row.max_id < id) return null;
+  const key = `${kind}:${row.min_id}`;
+  let block = blockCache.get(key);
+  if (!block) {
+    block = inflateJson<Record<string, unknown>>(row.data);
+    if (blockCache.size >= BLOCK_CACHE_MAX) blockCache.delete(blockCache.keys().next().value as string);
+    blockCache.set(key, block);
+  }
+  return (block[String(id)] as T | undefined) ?? null;
 }
+
+export function clearDetailCache() { blockCache.clear(); }
 
 export async function getCategories(kind: Kind): Promise<Category[]> {
   const rows = await getDataDb().getAllAsync<{ kind: Kind; id: number; parent_id: number | null; name: string; depth: number; path: string }>(

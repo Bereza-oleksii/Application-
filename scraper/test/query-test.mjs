@@ -34,9 +34,14 @@ for (const c of cases) {
 }
 const cnt = db.prepare('SELECT count(*) c FROM search WHERE search MATCH ?').get(buildMatch({ kind: 'item', tags: ['Доспехи', 'Кожаная броня', 'Верх'] }));
 console.log('leather tops:', cnt.c);
-const dict = db.prepare("SELECT value FROM meta WHERE key='dict'").get().value;
-const row = db.prepare("SELECT d.kind, d.id, d.data FROM details d WHERE kind='item' LIMIT 1 OFFSET 100").get();
-const json = JSON.parse(zlib.inflateRawSync(Buffer.from(row.data), { dictionary: Buffer.from(dict) }).toString('utf8'));
-console.log('detail sample', row.kind, row.id, Object.keys(json).join(','));
+const blk = db.prepare("SELECT kind, min_id, max_id, count, data FROM blocks WHERE kind='item' ORDER BY min_id LIMIT 1 OFFSET 20").get();
+const block = JSON.parse(zlib.inflateRawSync(Buffer.from(blk.data)).toString('utf8'));
+const firstId = Object.keys(block)[0];
+console.log(`block item ${blk.min_id}-${blk.max_id} (${blk.count} rows, ${blk.data.length} B) sample #${firstId}:`, Object.keys(block[firstId]).join(','));
+const lookup = db.prepare('SELECT min_id, max_id FROM blocks WHERE kind = ? AND min_id <= ? ORDER BY min_id DESC LIMIT 1');
+for (const [k, id] of [['item', 100001360], ['npc', 211800], ['quest', 1001], ['skill', 1], ['title', 1], ['harvest', 400601]]) {
+  const b = lookup.get(k, id); console.log(`lookup ${k}#${id} ->`, b ? `block ${b.min_id}-${b.max_id} ${b.max_id >= id ? 'OK' : 'MISS'}` : 'none');
+}
+console.log('blocks:', db.prepare('SELECT kind, count(*) c, round(sum(length(data))/1e6,1) mb FROM blocks GROUP BY kind').all().map((r) => `${r.kind}=${r.c} (${r.mb} MB)`).join(', '));
 console.log('maps:', db.prepare('SELECT count(*) c FROM maps').get().c, 'map_entities:', db.prepare('SELECT count(*) c FROM map_entities').get().c, 'spawns:', db.prepare('SELECT count(*) c FROM spawns').get().c);
 console.log(db.prepare("SELECT key, value FROM meta WHERE key IN ('counts','built_at','lang')").all());

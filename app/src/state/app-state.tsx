@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 
 import { DATA_LANGS } from '@/db/bundles.generated';
 import { getUserDb, kvGet, kvSet, openDatabases, openUserDb } from '@/db/database';
+import { clearDetailCache } from '@/db/queries';
 import type { Kind } from '@/db/types';
 import { STRINGS, type Strings, type UiLang, UI_LANGS } from '@/i18n/strings';
 
@@ -79,6 +80,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setReady(false);
     try {
       await openDatabases(l, (_s, msg) => setProgress(msg));
+      clearDetailCache();
       setDataLangState(l);
       await kvSet('dataLang', l);
       setDataVersion((v) => v + 1);

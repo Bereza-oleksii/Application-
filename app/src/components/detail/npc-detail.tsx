@@ -14,9 +14,18 @@ interface NpcDetail {
   stats?: Stat[];
   expReward?: number; apReward?: number; dpReward?: number;
   dropList?: Ref[]; startQuests?: Ref[]; endQuests?: Ref[]; maps?: Ref[];
+  sellList?: ShopGroup[]; tradeInList?: ShopGroup[];
   [key: string]: unknown;
 }
-const KNOWN = new Set(['titleDesc', 'stats', 'expReward', 'apReward', 'dpReward', 'dropList', 'startQuests', 'endQuests', 'maps']);
+interface ShopGroup { priceRate?: number; desc?: string; items?: Ref[] }
+const KNOWN = new Set(['titleDesc', 'stats', 'expReward', 'apReward', 'dpReward', 'dropList', 'startQuests', 'endQuests', 'maps', 'sellList', 'tradeInList']);
+
+function shopTitle(base: string, g: ShopGroup, priceLabel: string) {
+  const parts = [base];
+  if (g.desc) parts.push(g.desc);
+  if (g.priceRate && g.priceRate !== 1000) parts.push(`${priceLabel} ${g.priceRate / 10}%`);
+  return parts.join(' · ');
+}
 
 export function NpcDetailView({ data, id }: { data: NpcDetail; id: number }) {
   const t = useT();
@@ -28,6 +37,8 @@ export function NpcDetailView({ data, id }: { data: NpcDetail; id: number }) {
       {rewards.length ? <Section title={t.f.rewards}>{rewards.map(([k, v]) => <KeyValue key={k} label={k} value={v.toLocaleString()} />)}</Section> : null}
       <RefList title={t.f.maps} kind="map" refs={data.maps} mapContext={{ kind: 'npc', id }} />
       <RefList title={t.f.dropList} kind="item" refs={data.dropList} trailing={(r) => (typeof r.count === 'number' && r.count > 1 ? `×${r.count}` : undefined)} />
+      {(data.sellList ?? []).map((g, i) => <RefList key={`sell-${i}`} title={shopTitle(t.f.sellList, g, t.f.priceRate)} kind="item" refs={g.items} />)}
+      {(data.tradeInList ?? []).map((g, i) => <RefList key={`trade-${i}`} title={shopTitle(t.f.tradeInList, g, t.f.priceRate)} kind="item" refs={g.items} />)}
       <RefList title={t.f.startQuests} kind="quest" refs={data.startQuests} />
       <RefList title={t.f.endQuests} kind="quest" refs={data.endQuests} />
       <OtherFields data={data} known={KNOWN} title={t.f.other} />

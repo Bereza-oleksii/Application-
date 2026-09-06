@@ -108,8 +108,8 @@ node --experimental-strip-types scraper/test/query-test.mjs app/assets/db/aion_r
 131 000 запитів (~1.5–2 години при 8 паралельних запитах).
 
 `build-db.mjs` нормалізує JSON (посилання на інші сутності зберігаються лише як id,
-назви й іконки підтягуються з таблиці `entities`), стискає деталі deflate зі спільним
-словником і будує FTS5-індекс. Зображення зберігаються BLOB-ами в `assets.db`
+назви й іконки підтягуються з таблиці `entities`), стискає деталі deflate блоками по 64
+записи (320 МБ сирого JSON → ~17 МБ) і будує FTS5-індекс. База однієї мови ≈ 50 МБ. Зображення зберігаються BLOB-ами в `assets.db`
 і показуються через `data:`-URI.
 
 ## Схема бази (`aion_<lang>.db`)
@@ -118,10 +118,10 @@ node --experimental-strip-types scraper/test/query-test.mjs app/assets/db/aion_r
 |---|---|
 | `entities` | короткі картки всіх сутностей (kind, id, name, level, quality, image, tags) |
 | `search` | FTS5-індекс поверх `entities` (kind, name, tags) |
-| `details` | повний JSON деталей, стиснутий (deflate raw + словник у `meta.dict`) |
+| `blocks` | повний JSON деталей блоками по 64 послідовних id, кожен блок — raw-deflate (`{id: detail, …}`) |
 | `categories` | дерево категорій сайту для каталогу |
 | `maps`, `map_entities`, `spawns` | карти, хто на них є, координати появи |
-| `meta` | мова, дата зрізу, кількості, словник для розпакування |
+| `meta` | мова, дата зрізу, кількості записів, розмір блоку |
 
 ## Ліцензія та джерело даних
 

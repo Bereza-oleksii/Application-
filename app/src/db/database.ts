@@ -1,7 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
 import { ASSETS_BUNDLE, DATA_BUNDLES, MANIFEST } from './bundles.generated';
-import { setInflateDictionary } from './inflate';
 
 /**
  * Three databases:
@@ -74,6 +73,4 @@ export async function openDatabases(lang: string, onProgress?: ProgressFn) {
   await ensureBundled(`aion_${lang}.db`, DATA_BUNDLES[lang], lang);
   dataDb = await SQLite.openDatabaseAsync(`aion_${lang}.db`);
   currentLang = lang;
-  const dict = await dataDb.getFirstAsync<{ value: Uint8Array | null }>("SELECT value FROM meta WHERE key = 'dict'");
-  setInflateDictionary(dict?.value ?? null);
 }

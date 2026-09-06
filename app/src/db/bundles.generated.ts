@@ -3,5 +3,14 @@ export const DATA_BUNDLES: Record<string, number> = {
   ru: require('../../assets/db/aion_ru.db'),
 };
 export const ASSETS_BUNDLE: number = require('../../assets/db/assets.db');
-export const MANIFEST: Record<string, { size: number; builtAt: string }> = {};
+export const MANIFEST: Record<string, { size: number; builtAt: string }> = {
+  "ru": {
+    "size": 48459776,
+    "builtAt": "2026-09-06T23:18:17.587Z"
+  },
+  "assets": {
+    "size": 40960000,
+    "builtAt": "2026-09-06T21:54:45.136Z"
+  }
+};
 export const DATA_LANGS = Object.keys(DATA_BUNDLES);

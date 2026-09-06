@@ -11,7 +11,7 @@
  * Detail JSON is normalised:
  *   - imageUrl -> image (path relative to /images/)
  *   - referenced entities ({id, desc, imageUrl, ...}) lose desc/imageUrl (see ref-kinds.json)
- *   - stored as raw-deflate BLOB compressed with a shared dictionary (meta.dict)
+ *   - stored in blocks of 64 consecutive ids, each block a raw-deflate BLOB ({id: detail, ...})
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,6 +30,7 @@ const OUT = path.resolve(args.out || 'app/assets/db');
 fs.mkdirSync(OUT, { recursive: true });
 
 const KINDS = ['item', 'npc', 'quest', 'skill', 'title', 'harvest'];
+const BLOCK_SIZE = Number(args['block-size'] || 64);
 const IMG_PREFIX = /^https?:\/\/db\.aiondestiny\.net\/images\//;
 const img = (u) => (typeof u === 'string' ? decodeURIComponent(u.replace(IMG_PREFIX, '')) : null);
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
@@ -83,7 +84,8 @@ async function buildMain() {
       image TEXT, tags TEXT NOT NULL DEFAULT '[]', sub TEXT,
       UNIQUE (kind, id)
     );
-    CREATE TABLE details (kind TEXT NOT NULL, id INTEGER NOT NULL, data BLOB NOT NULL, PRIMARY KEY (kind, id)) WITHOUT ROWID;
+    -- detail JSON is stored in blocks of BLOCK_SIZE consecutive ids: {id: detail, ...} as raw-deflate
+    CREATE TABLE blocks (kind TEXT NOT NULL, min_id INTEGER NOT NULL, max_id INTEGER NOT NULL, count INTEGER NOT NULL, data BLOB NOT NULL, PRIMARY KEY (kind, min_id));
     CREATE TABLE categories (kind TEXT NOT NULL, id INTEGER NOT NULL, parent_id INTEGER, name TEXT, depth INTEGER, path TEXT, PRIMARY KEY (kind, id));
     CREATE TABLE maps (id INTEGER PRIMARY KEY, code TEXT, name TEXT, type TEXT, preview TEXT, image TEXT, width INTEGER, height INTEGER, offset_x INTEGER, offset_y INTEGER);
     CREATE TABLE map_entities (map_id INTEGER NOT NULL, kind TEXT NOT NULL, id INTEGER NOT NULL, PRIMARY KEY (map_id, kind, id)) WITHOUT ROWID;
@@ -92,21 +94,13 @@ async function buildMain() {
   `);
   const prep = (sql) => { const st = db.prepare(sql); return { run: (...a) => st.run(...a.map((v) => (v === undefined ? null : v))), get: (...a) => st.get(...a) }; };
   const insEnt = prep('INSERT OR IGNORE INTO entities (kind,id,name,level,quality,image,tags,sub) VALUES (?,?,?,?,?,?,?,?)');
-  const insDet = prep('INSERT OR REPLACE INTO details (kind,id,data) VALUES (?,?,?)');
+  const insBlock = prep('INSERT OR REPLACE INTO blocks (kind,min_id,max_id,count,data) VALUES (?,?,?,?,?)');
   const insCat = prep('INSERT OR REPLACE INTO categories (kind,id,parent_id,name,depth,path) VALUES (?,?,?,?,?,?)');
   const insMap = prep('INSERT OR REPLACE INTO maps (id,code,name,type,preview,image,width,height,offset_x,offset_y) VALUES (?,?,?,?,?,?,?,?,?,?)');
   const insMapEnt = prep('INSERT OR IGNORE INTO map_entities (map_id,kind,id) VALUES (?,?,?)');
   const insSpawn = prep('INSERT OR REPLACE INTO spawns (map_id,kind,id,points) VALUES (?,?,?,?)');
 
-  // 1. dictionary from a sample of details of every kind
-  const samples = [];
-  for (const kind of KINDS) {
-    let n = 0;
-    for await (const r of ndjson(path.join(RAW, `${kind}.ndjson`))) { samples.push(JSON.stringify(normalize(r, kind))); if (++n >= 400) break; }
-  }
-  const dict = buildDictionary(samples);
-  log(`dictionary ${dict.length} bytes from ${samples.length} samples`);
-  const deflate = (s) => zlib.deflateRawSync(Buffer.from(s, 'utf8'), { level: 9, dictionary: dict });
+  const deflate = (str) => zlib.deflateRawSync(Buffer.from(str, 'utf8'), { level: 9 });
 
   const counts = {};
   let rawBytes = 0, compBytes = 0;
@@ -121,21 +115,28 @@ async function buildMain() {
     }
     db.exec('COMMIT');
     log(`[${kind}] ${n} summaries`);
+    // details: collect (id, json) for the whole kind, sort by id, write compressed blocks
     db.exec('BEGIN');
-    let d = 0;
+    const rows = [];
     for await (const r of ndjson(path.join(RAW, `${kind}.ndjson`))) {
       const id = r.__id ?? r.id ?? r.itemId;
-      const json = JSON.stringify(normalize(r, kind));
-      const blob = deflate(json);
-      rawBytes += json.length; compBytes += blob.length;
-      insDet.run(kind, id, blob);
+      rows.push([id, JSON.stringify(normalize(r, kind))]);
       // make sure every detailed entity also has a summary row (lists can miss a few)
       insEnt.run(kind, id, r.desc ?? '', r.level ?? null, r.quality ?? null, img(r.imageUrl), JSON.stringify(r.tags || []), null);
-      if (++d % 20000 === 0) { db.exec('COMMIT'); db.exec('BEGIN'); log(`[${kind}] ${d} details...`); }
+    }
+    rows.sort((a, b) => a[0] - b[0]);
+    let nb = 0;
+    for (let i = 0; i < rows.length; i += BLOCK_SIZE) {
+      const chunk = rows.slice(i, i + BLOCK_SIZE);
+      const json = '{' + chunk.map(([id, j]) => `"${id}":${j}`).join(',') + '}';
+      const blob = deflate(json);
+      rawBytes += json.length; compBytes += blob.length;
+      insBlock.run(kind, chunk[0][0], chunk[chunk.length - 1][0], chunk.length, blob);
+      nb++;
     }
     db.exec('COMMIT');
-    counts[kind] = { summaries: n, details: d };
-    log(`[${kind}] ${d} details`);
+    counts[kind] = { summaries: n, details: rows.length };
+    log(`[${kind}] ${rows.length} details in ${nb} blocks`);
   }
   log(`details raw ${(rawBytes / 1e6).toFixed(1)} MB -> compressed ${(compBytes / 1e6).toFixed(1)} MB`);
 
@@ -193,8 +194,8 @@ async function buildMain() {
   meta.run('source', 'https://db.aiondestiny.net');
   meta.run('built_at', new Date().toISOString());
   meta.run('counts', JSON.stringify(counts));
-  meta.run('schema_version', '2');
-  meta.run('dict', dict);
+  meta.run('schema_version', '3');
+  meta.run('block_size', String(BLOCK_SIZE));
   db.exec('VACUUM');
   db.close();
   log(`wrote ${file} (${(fs.statSync(file).size / 1e6).toFixed(1)} MB)`);
