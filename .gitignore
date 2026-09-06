@@ -1,0 +1,7 @@
+# scraped raw data and downloaded images are large and reproducible (see README)
+data/raw/
+data/images/
+data/*.log
+data/images-missing.txt
+node_modules/
+.DS_Store

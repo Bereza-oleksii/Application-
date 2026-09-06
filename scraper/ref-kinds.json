@@ -1,0 +1,15 @@
+{
+  "_comment": "For each entity kind: JSON field name -> kind of the referenced entity. Objects inside these fields are stored as {id, ...extra} without desc/image; the app resolves names by id.",
+  "item": {
+    "getNpcDrop": "npc", "getNpcBuy": "npc", "getNpcTradeIn": "npc",
+    "useQuest": "quest", "getQuestReward": "quest",
+    "getItemCraft": "item", "useCraft": "item", "getItemDisassembly": "item", "useItemTrade": "item",
+    "itemList": "item", "items": "item", "item": "item",
+    "getHarvest": "harvest"
+  },
+  "npc": { "dropList": "item", "startQuests": "quest", "endQuests": "quest", "maps": "map", "buyList": "item", "sellList": "item", "skills": "skill" },
+  "quest": { "npcs": "npc", "items": "item", "randomItems": "item", "selectableItems": "item", "title": "title", "startNpcs": "npc", "endNpcs": "npc" },
+  "skill": { "items": "item", "stigmaItems": "item", "skillBooks": "item", "npcs": "npc" },
+  "title": { "quests": "quest", "items": "item" },
+  "harvest": { "items": "item", "maps": "map" }
+}
