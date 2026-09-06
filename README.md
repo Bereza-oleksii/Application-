@@ -12,6 +12,7 @@
 │   ├── download-images.mjs  # завантаження всіх іконок і карт -> data/images/
 │   ├── build-db.mjs         # NDJSON + images -> app/assets/db/*.db (+ bundles.generated.ts)
 │   ├── ref-kinds.json       # які поля деталей посилаються на які сутності
+│   ├── make-icons.mjs       # генерація іконок застосунку (sharp)
 │   └── test/query-test.mjs  # перевірка SQL-запитів застосунку на готовій базі
 ├── app/                     # Expo (React Native) застосунок
 │   ├── assets/db/           # aion_ru.db, aion_en.db, assets.db (готові бази)
@@ -40,7 +41,7 @@
 ## Збірка застосунку
 
 Потрібен Node.js 22+. Готові бази вже лежать в `app/assets/db/`, тому для збірки
-достатньо:
+достатньо (для скриптів у `scraper/` окремо `cd scraper && npm install`):
 
 ```bash
 cd app
@@ -55,9 +56,9 @@ npx expo prebuild --platform android
 cd android && ./gradlew assembleRelease
 # APK: android/app/build/outputs/apk/release/app-release.apk
 
-# варіант 2: у хмарі через EAS (безкоштовний акаунт expo.dev)
+# варіант 2: у хмарі через EAS (безкоштовний акаунт expo.dev; профілі в app/eas.json)
 npm i -g eas-cli && eas login
-eas build --platform android --profile preview
+eas build --platform android --profile preview   # -> APK для встановлення напряму
 ```
 
 ### iOS
