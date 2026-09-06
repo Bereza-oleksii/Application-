@@ -169,7 +169,11 @@ async function buildMain() {
   let nme = 0;
   for await (const r of ndjson(path.join(RAW, 'map.npcs.ndjson'))) { insMapEnt.run(r.mapId, r.npcId !== undefined ? 'npc' : 'harvest', r.npcId ?? r.harvestId); nme++; }
   let ns = 0;
-  for await (const r of ndjson(path.join(RAW, 'map.spawns.ndjson'))) {
+  let spawnFile = path.join(RAW, 'map.spawns.ndjson');
+  if (!fs.existsSync(spawnFile)) {
+    for (const d of fs.readdirSync(path.dirname(RAW))) { const cand = path.join(path.dirname(RAW), d, 'map.spawns.ndjson'); if (fs.existsSync(cand)) { spawnFile = cand; log(`using spawn data from ${cand}`); break; } }
+  }
+  for await (const r of ndjson(spawnFile)) {
     if (!r.spawns || !r.spawns.length) continue;
     const kind = r.npcId !== undefined && r.npcId !== null ? 'npc' : 'harvest';
     insSpawn.run(r.mapId, kind, r.npcId ?? r.harvestId, JSON.stringify(r.spawns.map((s) => [s.x, s.y, s.z])));
@@ -197,31 +201,56 @@ async function buildMain() {
 }
 
 // ------------------------------------------------------------------ assets db
-function buildAssets() {
+const MAP_SIZE = Number(args['map-size'] || 1536);
+const MAP_QUALITY = Number(args['map-quality'] || 72);
+
+async function loadSharp() {
+  try { return (await import('sharp')).default; } catch { log('sharp not installed: full-size map images are stored as-is (npm install in scraper/)'); return null; }
+}
+
+async function buildAssets() {
   const file = path.join(OUT, 'assets.db');
   fs.rmSync(file, { force: true });
+  const sharp = await loadSharp();
   const db = new DatabaseSync(file);
   db.exec(`PRAGMA journal_mode = OFF; PRAGMA synchronous = OFF;
     CREATE TABLE images (path TEXT PRIMARY KEY, mime TEXT NOT NULL, data BLOB NOT NULL) WITHOUT ROWID;
     CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);`);
   const ins = db.prepare('INSERT OR REPLACE INTO images (path,mime,data) VALUES (?,?,?)');
   const mime = (p) => ({ '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif' })[path.extname(p).toLowerCase()] || 'application/octet-stream';
-  let n = 0, bytes = 0;
-  db.exec('BEGIN');
+  const files = [];
   const walk = (dir) => {
     for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, ent.name);
-      if (ent.isDirectory()) walk(p);
-      else { const rel = path.relative(IMAGES, p).split(path.sep).join('/'); const buf = fs.readFileSync(p); ins.run(rel, mime(p), buf); n++; bytes += buf.length; }
+      if (ent.isDirectory()) walk(p); else files.push(p);
     }
   };
   if (fs.existsSync(IMAGES)) walk(IMAGES);
+  let n = 0, bytes = 0, resized = 0;
+  db.exec('BEGIN');
+  for (const p of files) {
+    const rel = path.relative(IMAGES, p).split(path.sep).join('/');
+    let buf = fs.readFileSync(p);
+    // full-size maps are 3072x3072 and up to 9 MB each: downscale them for the phone
+    if (sharp && /^maps\/[^/]+\/maps\.webp$/.test(rel)) {
+      try {
+        const meta = await sharp(buf).metadata();
+        if ((meta.width || 0) > MAP_SIZE || (meta.height || 0) > MAP_SIZE) {
+          buf = await sharp(buf).resize(MAP_SIZE, MAP_SIZE, { fit: 'inside' }).webp({ quality: MAP_QUALITY }).toBuffer();
+          resized++;
+        }
+      } catch (e) { log(`resize failed for ${rel}: ${e.message}`); }
+    }
+    ins.run(rel, mime(p), buf);
+    n++; bytes += buf.length;
+  }
   db.exec('COMMIT');
   db.prepare('INSERT INTO meta (key,value) VALUES (?,?)').run('built_at', new Date().toISOString());
   db.prepare('INSERT INTO meta (key,value) VALUES (?,?)').run('count', String(n));
+  db.prepare('INSERT INTO meta (key,value) VALUES (?,?)').run('map_size', String(MAP_SIZE));
   db.exec('VACUUM');
   db.close();
-  log(`wrote ${file}: ${n} images, ${(bytes / 1e6).toFixed(1)} MB raw, file ${(fs.statSync(file).size / 1e6).toFixed(1)} MB`);
+  log(`wrote ${file}: ${n} images (${resized} maps downscaled to ${MAP_SIZE}px), ${(bytes / 1e6).toFixed(1)} MB raw, file ${(fs.statSync(file).size / 1e6).toFixed(1)} MB`);
 }
 
 /** Writes app/src/db/bundles.generated.ts + manifest so the app knows which databases are bundled. */
@@ -252,7 +281,7 @@ export const DATA_LANGS = Object.keys(DATA_BUNDLES);
 }
 
 (async () => {
-  if (args.assets !== 'false') buildAssets();
+  if (args.assets !== 'false') await buildAssets();
   if (args.main !== 'false') await buildMain();
   fs.copyFileSync(path.join(HERE, 'ref-kinds.json'), path.join(OUT, 'ref-kinds.json'));
   writeBundles();

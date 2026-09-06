@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,14 +14,28 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function Gate({ children }: { children: React.ReactNode }) {
   const { ready, error, progress, t } = useApp();
+  const [everReady, setEverReady] = useState(false);
   useEffect(() => {
     if (ready || error) SplashScreen.hideAsync().catch(() => {});
+    if (ready) setEverReady(true);
   }, [ready, error]);
   if (error) {
     return (
       <View style={styles.center}>
         <Text style={styles.errorTitle}>Database error</Text>
         <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+  if (!ready && everReady) {
+    // language switch: keep the navigator mounted, show a blocking overlay
+    return (
+      <View style={{ flex: 1 }}>
+        {children}
+        <View style={styles.overlay}>
+          <Loading text={t.preparingDb} />
+          {progress ? <Text style={styles.progress}>{progress}</Text> : null}
+        </View>
       </View>
     );
   }
@@ -74,6 +88,7 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, gap: Spacing.md },
+  overlay: { position: 'absolute', inset: 0, backgroundColor: 'rgba(13,17,23,0.85)', alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
   brand: { color: Colors.accent, fontSize: FontSize.xl, fontWeight: '700', letterSpacing: 1 },
   hint: { color: Colors.textMuted, fontSize: FontSize.sm, textAlign: 'center', maxWidth: 320 },
   progress: { color: Colors.textMuted, fontSize: FontSize.xs },

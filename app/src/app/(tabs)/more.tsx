@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { EntityRow } from '@/components/entity-row';
@@ -22,8 +22,9 @@ function useResolved(list: { kind: EntitySummary['kind']; id: number }[], versio
 
 export default function MoreScreen() {
   const { t, uiLang, setUiLang, dataLang, setDataLang, bookmarks, history, dataVersion } = useApp();
+  const recent = useMemo(() => history.slice(0, 20), [history]);
   const bm = useResolved(bookmarks, dataVersion);
-  const hist = useResolved(history.slice(0, 20), dataVersion);
+  const hist = useResolved(recent, dataVersion);
   const [meta, setMeta] = useState<Record<string, string>>({});
   useEffect(() => { getMeta().then(setMeta).catch(() => {}); }, [dataVersion]);
   let counts: Record<string, { summaries: number }> = {};

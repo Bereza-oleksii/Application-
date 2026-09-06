@@ -1,0 +1,20 @@
+{
+  "name": "aion-db-scraper",
+  "version": "1.0.0",
+  "description": "Scrapes db.aiondestiny.net and builds the offline SQLite databases for the Aion DB Offline app",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "scrape:ru": "node scrape.mjs --lang ru --stage all --concurrency 8 --out ../data/raw",
+    "scrape:en": "node scrape.mjs --lang en --stage all --concurrency 8 --out ../data/raw",
+    "spawns:ru": "node scrape.mjs --lang ru --stage spawns --concurrency 8 --out ../data/raw",
+    "images": "node download-images.mjs --raw ../data/raw --out ../data/images",
+    "build:ru": "node build-db.mjs --lang ru --raw ../data/raw --images ../data/images --out ../app/assets/db",
+    "build:en": "node build-db.mjs --lang en --raw ../data/raw --images ../data/images --out ../app/assets/db --assets false",
+    "test": "node --experimental-strip-types test/query-test.mjs ../app/assets/db/aion_ru.db \"меч стража\""
+  },
+  "dependencies": {
+    "sharp": "^0.35.4"
+  }
+}
