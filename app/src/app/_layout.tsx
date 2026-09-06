@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -13,11 +13,9 @@ import { AppStateProvider, useApp } from '@/state/app-state';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function Gate({ children }: { children: React.ReactNode }) {
-  const { ready, error, progress, t } = useApp();
-  const [everReady, setEverReady] = useState(false);
+  const { ready, everReady, error, progress, t } = useApp();
   useEffect(() => {
     if (ready || error) SplashScreen.hideAsync().catch(() => {});
-    if (ready) setEverReady(true);
   }, [ready, error]);
   if (error) {
     return (

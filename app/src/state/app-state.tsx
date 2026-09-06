@@ -9,6 +9,8 @@ interface BookmarkRow { kind: Kind; id: number; added_at: number }
 
 interface AppState {
   ready: boolean;
+  /** True once the databases were opened at least once (used to keep the UI mounted during language switches). */
+  everReady: boolean;
   error: string | null;
   progress: string;
   uiLang: UiLang;
@@ -29,6 +31,7 @@ const Ctx = createContext<AppState | null>(null);
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
+  const [everReady, setEverReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState('');
   const [uiLang, setUiLangState] = useState<UiLang>('uk');
@@ -59,6 +62,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         await openDatabases(data, (_step, msg) => setProgress(msg));
         await loadUserLists();
         setReady(true);
+        setEverReady(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       }
@@ -105,9 +109,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<AppState>(() => ({
-    ready, error, progress, uiLang, dataLang, t: STRINGS[uiLang], setUiLang, setDataLang,
+    ready, everReady, error, progress, uiLang, dataLang, t: STRINGS[uiLang], setUiLang, setDataLang,
     bookmarks, isBookmarked, toggleBookmark, history, recordVisit, dataVersion,
-  }), [ready, error, progress, uiLang, dataLang, setUiLang, setDataLang, bookmarks, isBookmarked, toggleBookmark, history, recordVisit, dataVersion]);
+  }), [ready, everReady, error, progress, uiLang, dataLang, setUiLang, setDataLang, bookmarks, isBookmarked, toggleBookmark, history, recordVisit, dataVersion]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

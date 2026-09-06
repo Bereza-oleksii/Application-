@@ -5,3 +5,5 @@ data/*.log
 data/images-missing.txt
 node_modules/
 .DS_Store
+data/*.sh
+data/*.out
