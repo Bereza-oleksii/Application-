@@ -45,8 +45,8 @@ export function RefList({ title, kind, refs, trailing, mapContext }: Props) {
   if (!list.length) return null;
   const visible = list.slice(0, shown);
   return (
-    <Section title={`${title} (${list.length})`} style={{ paddingHorizontal: 0 }}>
-      <View style={{ marginHorizontal: -Spacing.md, marginVertical: -Spacing.xs }}>
+    <Section title={`${title} (${list.length})`} flush>
+      <View>
         {visible.map((r, i) => {
           if (kind === 'map') {
             const m = maps.get(r.id);

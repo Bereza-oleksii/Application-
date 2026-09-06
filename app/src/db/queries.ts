@@ -7,10 +7,6 @@ interface EntityRow {
   kind: Kind; id: number; name: string; level: number | null; quality: number | null;
   image: string | null; tags: string; sub: string | null;
 }
-interface EntityRow {
-  kind: Kind; id: number; name: string; level: number | null; quality: number | null;
-  image: string | null; tags: string; sub: string | null;
-}
 
 function rowToSummary(r: EntityRow): EntitySummary {
   let tags: string[] = [];

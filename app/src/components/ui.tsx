@@ -4,11 +4,12 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } 
 import { Colors, FontSize, Radius, Spacing } from '@/constants/theme';
 import type { Stat } from '@/db/types';
 
-export function Section({ title, children, style }: { title?: string; children: React.ReactNode; style?: ViewStyle }) {
+/** Titled card. `flush` removes the inner padding so list rows can span the full card width. */
+export function Section({ title, children, style, flush }: { title?: string; children: React.ReactNode; style?: ViewStyle; flush?: boolean }) {
   return (
     <View style={[styles.section, style]}>
       {title ? <Text style={styles.sectionTitle}>{title}</Text> : null}
-      <View style={styles.card}>{children}</View>
+      <View style={[styles.card, flush && styles.cardFlush]}>{children}</View>
     </View>
   );
 }
@@ -88,6 +89,7 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
   sectionTitle: { color: Colors.accent, fontSize: FontSize.sm, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: Spacing.sm },
   card: { backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.xs },
+  cardFlush: { padding: 0, gap: 0, overflow: 'hidden' },
   kv: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.md, paddingVertical: 3 },
   kvLabel: { color: Colors.textSecondary, fontSize: FontSize.sm, flex: 1 },
   kvValue: { color: Colors.text, fontSize: FontSize.sm, fontWeight: '600', textAlign: 'right', flexShrink: 1 },

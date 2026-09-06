@@ -32,14 +32,12 @@ export default function MoreScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: Spacing.xxl }}>
-      <Section title={t.bookmarks} style={{ paddingHorizontal: 0 }}>
-        <View style={styles.listWrap}>
-          {bm.length ? bm.map((e) => <EntityRow key={`${e.kind}:${e.id}`} entity={e} showKind />) : <Empty text={t.noBookmarks} />}
-        </View>
+      <Section title={t.bookmarks} flush>
+        {bm.length ? bm.map((e) => <EntityRow key={`${e.kind}:${e.id}`} entity={e} showKind />) : <Empty text={t.noBookmarks} />}
       </Section>
       {hist.length ? (
-        <Section title={t.history} style={{ paddingHorizontal: 0 }}>
-          <View style={styles.listWrap}>{hist.map((e) => <EntityRow key={`${e.kind}:${e.id}`} entity={e} showKind />)}</View>
+        <Section title={t.history} flush>
+          {hist.map((e) => <EntityRow key={`${e.kind}:${e.id}`} entity={e} showKind />)}
         </Section>
       ) : null}
       <Section title={t.settings}>
@@ -59,7 +57,6 @@ export default function MoreScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  listWrap: { marginHorizontal: -Spacing.md, marginVertical: -Spacing.xs },
   label: { color: Colors.textSecondary, fontSize: 13, marginBottom: Spacing.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   about: { color: Colors.text, fontSize: 14, lineHeight: 20, marginBottom: Spacing.sm },
