@@ -9,14 +9,14 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0D1117",
     "ios": {
-      "bundleIdentifier": "net.aiondestiny.dboffline",
+      "bundleIdentifier": "com.aiondb.offline",
       "supportsTablet": true,
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true
       }
     },
     "android": {
-      "package": "net.aiondestiny.dboffline",
+      "package": "com.aiondb.offline",
       "adaptiveIcon": {
         "backgroundColor": "#0D1117",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

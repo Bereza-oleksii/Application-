@@ -31,7 +31,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const KINDS = ['item', 'npc', 'quest', 'skill', 'title', 'harvest'];
 const BLOCK_SIZE = Number(args['block-size'] || 64);
-const IMG_PREFIX = /^https?:\/\/db\.aiondestiny\.net\/images\//;
+const IMG_PREFIX = /^https?:\/\/[^/]+\/images\//;
 const img = (u) => (typeof u === 'string' ? decodeURIComponent(u.replace(IMG_PREFIX, '')) : null);
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
@@ -70,8 +70,60 @@ function buildDictionary(samples) {
   return Buffer.from(dict, 'utf8');
 }
 
+/**
+ * The source keeps one harvest record per map / spawn variant, so the same node
+ * (same name, gathering skill and level) appears up to 9 times. Group them:
+ * the smallest id becomes the canonical record, the others are aliases.
+ * Grouping is taken from the ru data when present so ids match across languages.
+ */
+async function loadHarvestAliases() {
+  let file = path.join(RAW, 'harvest.ndjson');
+  const ruFile = path.join(path.dirname(RAW), 'ru', 'harvest.ndjson');
+  if (fs.existsSync(ruFile)) file = ruFile;
+  const groups = new Map();
+  for await (const r of ndjson(file)) {
+    const key = `${r.desc}|${r.skillName}|${r.skillLevel}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r.__id ?? r.id);
+  }
+  const alias = new Map();
+  for (const ids of groups.values()) { ids.sort((a, b) => a - b); for (const id of ids) alias.set(id, ids[0]); }
+  log(`[harvest] ${alias.size} records -> ${groups.size} unique nodes (grouping from ${path.relative(process.cwd(), file)})`);
+  return alias;
+}
+const canonHarvest = (alias, id) => alias.get(id) ?? id;
+
+/** Remaps and dedupes a list of harvest refs ({id, ...}) through the alias map. */
+function dedupeHarvestRefs(list, alias) {
+  if (!Array.isArray(list)) return list;
+  const seen = new Set(); const out = [];
+  for (const ref of list) {
+    if (!ref || typeof ref.id !== 'number') continue;
+    const id = canonHarvest(alias, ref.id);
+    if (seen.has(id)) continue;
+    seen.add(id); out.push({ ...ref, id });
+  }
+  return out;
+}
+
+/** Merges the detail records of one harvest group into a single record. */
+function mergeHarvestDetails(records) {
+  const base = { ...records[0] };
+  const unionBy = (key) => {
+    const seen = new Map();
+    for (const r of records) for (const x of r[key] || []) if (x && typeof x.id === 'number' && !seen.has(x.id)) seen.set(x.id, x);
+    return [...seen.values()];
+  };
+  base.items = unionBy('items');
+  base.extraItems = unionBy('extraItems');
+  base.maps = unionBy('maps');
+  base.requiredItem = records.map((r) => r.requiredItem).find(Boolean) ?? null;
+  return base;
+}
+
 // ------------------------------------------------------------------ main db
 async function buildMain() {
+  const harvestAlias = await loadHarvestAliases();
   const file = path.join(OUT, `aion_${LANG}.db`);
   fs.rmSync(file, { force: true });
   const db = new DatabaseSync(file);
@@ -109,6 +161,7 @@ async function buildMain() {
     db.exec('BEGIN');
     let n = 0;
     for await (const r of ndjson(path.join(RAW, `${kind}.list.ndjson`))) {
+      if (kind === 'harvest' && canonHarvest(harvestAlias, r.id) !== r.id) continue;
       const sub = {};
       if (kind === 'harvest') { sub.skillName = r.skillName; sub.skillLevel = r.skillLevel; }
       insEnt.run(kind, r.id, r.desc ?? '', r.level ?? null, r.quality ?? null, img(r.imageUrl), JSON.stringify(r.tags || []), Object.keys(sub).length ? JSON.stringify(sub) : null);
@@ -119,11 +172,24 @@ async function buildMain() {
     // details: collect (id, json) for the whole kind, sort by id, write compressed blocks
     db.exec('BEGIN');
     const rows = [];
+    const harvestGroups = new Map();
     for await (const r of ndjson(path.join(RAW, `${kind}.ndjson`))) {
       const id = r.__id ?? r.id ?? r.itemId;
+      if (kind === 'harvest') {
+        const canon = canonHarvest(harvestAlias, id);
+        if (!harvestGroups.has(canon)) harvestGroups.set(canon, []);
+        harvestGroups.get(canon).push({ ...r, id: canon });
+        continue;
+      }
+      if (kind === 'item' && r.getHarvest) r.getHarvest = dedupeHarvestRefs(r.getHarvest, harvestAlias);
       rows.push([id, JSON.stringify(normalize(r, kind))]);
       // make sure every detailed entity also has a summary row (lists can miss a few)
       insEnt.run(kind, id, r.desc ?? '', r.level ?? null, r.quality ?? null, img(r.imageUrl), JSON.stringify(r.tags || []), null);
+    }
+    for (const [canon, records] of harvestGroups) {
+      const merged = mergeHarvestDetails(records);
+      rows.push([canon, JSON.stringify(normalize(merged, kind))]);
+      insEnt.run(kind, canon, merged.desc ?? '', merged.level ?? null, merged.quality ?? null, img(merged.imageUrl), JSON.stringify(merged.tags || []), JSON.stringify({ skillName: merged.skillName, skillLevel: merged.skillLevel }));
     }
     rows.sort((a, b) => a[0] - b[0]);
     let nb = 0;
@@ -185,18 +251,26 @@ async function buildMain() {
   }
   for (const [id, m] of previews) { insMap.run(id, m.name, m.desc, m.type, img(m.imageUrl), null, null, null, null, null); nm++; }
   let nme = 0;
-  for await (const r of ndjson(path.join(RAW, 'map.npcs.ndjson'))) { insMapEnt.run(r.mapId, r.npcId !== undefined ? 'npc' : 'harvest', r.npcId ?? r.harvestId); nme++; }
+  for await (const r of ndjson(path.join(RAW, 'map.npcs.ndjson'))) {
+    if (r.npcId !== undefined) insMapEnt.run(r.mapId, 'npc', r.npcId); else insMapEnt.run(r.mapId, 'harvest', canonHarvest(harvestAlias, r.harvestId));
+    nme++;
+  }
   let ns = 0;
   let spawnFile = path.join(RAW, 'map.spawns.ndjson');
   if (!fs.existsSync(spawnFile)) {
     for (const d of fs.readdirSync(path.dirname(RAW))) { const cand = path.join(path.dirname(RAW), d, 'map.spawns.ndjson'); if (fs.existsSync(cand)) { spawnFile = cand; log(`using spawn data from ${cand}`); break; } }
   }
+  const spawnAcc = new Map();
   for await (const r of ndjson(spawnFile)) {
     if (!r.spawns || !r.spawns.length) continue;
     const kind = r.npcId !== undefined && r.npcId !== null ? 'npc' : 'harvest';
-    insSpawn.run(r.mapId, kind, r.npcId ?? r.harvestId, JSON.stringify(r.spawns.map((s) => [s.x, s.y, s.z])));
-    ns += r.spawns.length;
+    const id = kind === 'npc' ? r.npcId : canonHarvest(harvestAlias, r.harvestId);
+    const key = `${r.mapId}|${kind}|${id}`;
+    if (!spawnAcc.has(key)) spawnAcc.set(key, { mapId: r.mapId, kind, id, points: [], seen: new Set() });
+    const acc = spawnAcc.get(key);
+    for (const s of r.spawns) { const k = `${s.x},${s.y},${s.z}`; if (!acc.seen.has(k)) { acc.seen.add(k); acc.points.push([s.x, s.y, s.z]); } }
   }
+  for (const a of spawnAcc.values()) { insSpawn.run(a.mapId, a.kind, a.id, JSON.stringify(a.points)); ns += a.points.length; }
   db.exec('COMMIT');
   log(`[maps] ${nm} maps, ${nme} map-entity rows, ${ns} spawn points`);
 
@@ -208,10 +282,9 @@ async function buildMain() {
   `);
   const meta = prep('INSERT INTO meta (key,value) VALUES (?,?)');
   meta.run('lang', LANG);
-  meta.run('source', 'https://db.aiondestiny.net');
   meta.run('built_at', new Date().toISOString());
   meta.run('counts', JSON.stringify(counts));
-  meta.run('schema_version', '4');
+  meta.run('schema_version', '5');
   meta.run('block_size', String(BLOCK_SIZE));
   db.exec('VACUUM');
   db.close();

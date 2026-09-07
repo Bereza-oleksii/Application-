@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Scraper for https://db.aiondestiny.net (Aion DB Destiny).
- *
- * The site is a Nuxt SPA backed by a JSON API under /api. This script walks the
- * API and stores everything as NDJSON so the data can be turned into an
- * offline SQLite database (see build-db.mjs).
+ * Scraper for the online Aion knowledge base (a Nuxt SPA backed by a JSON API under /api).
+ * The base URL is taken from the SOURCE_URL environment variable, e.g.
+ *   SOURCE_URL=https://example.com node scraper/scrape.mjs --lang ru --stage all
+ * Everything is stored as NDJSON so the data can be turned into an offline SQLite
+ * database (see build-db.mjs).
  *
  * Usage:
  *   node scraper/scrape.mjs --lang ru --stage all [--concurrency 8] [--out data/raw]
@@ -16,7 +16,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 
-const BASE = 'https://db.aiondestiny.net';
+const BASE = (process.env.SOURCE_URL || '').replace(/\/$/, '');
+if (!BASE) { console.error('Set SOURCE_URL to the base URL of the online database (e.g. SOURCE_URL=https://example.com)'); process.exit(1); }
 const KINDS = ['item', 'npc', 'quest', 'skill', 'title', 'harvest'];
 const LIST_KEY = { item: 'items', npc: 'npcs', quest: 'quests', skill: 'skills', title: 'titles', harvest: 'harvests' };
 const HAS_CATEGORIES = ['item', 'npc', 'quest', 'skill'];

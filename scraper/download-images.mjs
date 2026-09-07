@@ -9,12 +9,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 
-const BASE = 'https://db.aiondestiny.net';
 const args = Object.fromEntries(process.argv.slice(2).map((a, i, arr) => a.startsWith('--') ? [a.slice(2), arr[i + 1] && !arr[i + 1].startsWith('--') ? arr[i + 1] : 'true'] : null).filter(Boolean));
 const RAW = path.resolve(args.raw || 'data/raw');
 const OUT = path.resolve(args.out || 'data/images');
 const CONCURRENCY = Number(args.concurrency || 6);
-const URL_RE = /https?:\/\/db\.aiondestiny\.net\/images\/[^"\\\s]+/g;
+const URL_RE = /https?:\/\/[a-z0-9.-]+\/images\/[^"\\\s]+/g;
 
 const jar = new Map();
 function cookieHeader() { return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join('; '); }

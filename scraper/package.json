@@ -1,7 +1,7 @@
 {
   "name": "aion-db-scraper",
   "version": "1.0.0",
-  "description": "Scrapes db.aiondestiny.net and builds the offline SQLite databases for the Aion DB Offline app",
+  "description": "Collects Aion game data from the online knowledge base (SOURCE_URL) and builds the offline SQLite databases for the Aion DB Offline app",
   "private": true,
   "type": "module",
   "engines": { "node": ">=22.13" },
