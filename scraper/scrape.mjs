@@ -8,7 +8,7 @@
  *
  * Usage:
  *   node scraper/scrape.mjs --lang ru --stage all [--concurrency 8] [--out data/raw]
- *   stages: list | detail | categories | maps | spawns | all
+ *   stages: list | detail | categories | maps | spawns | races | all
  *
  * The scraper is resumable: already fetched records are skipped on restart.
  */
@@ -259,8 +259,8 @@ async function stageSpawns() {
   const w = new NdjsonWriter(spawnFile);
   const t0 = Date.now();
   await pool(todo, async (p) => {
-    const body = { mapId: p.mapId };
-    if (p.npcId !== undefined) body.npcId = p.npcId; else body.harvestId = p.harvestId;
+    // the site sends harvest ids in the npcId field as well
+    const body = { mapId: p.mapId, npcId: p.npcId ?? p.harvestId };
     try {
       const res = await api('POST', '/map/search-spawn', body);
       w.write({ mapId: p.mapId, npcId: p.npcId, harvestId: p.harvestId, spawns: (res && res.spawns) || [] });
@@ -275,6 +275,24 @@ async function stageSpawns() {
   log(`[spawns] done ${w.count}`);
 }
 
+async function stageRaces() {
+  const file = path.join(OUT, 'item.races.json');
+  const out = {};
+  for (const [name, race] of [['elyos', 0], ['asmodian', 1]]) {
+    const body = { sortType: 0, categoryId: 0, race, page: 1, limit: PAGE_LIMIT };
+    const first = await api('POST', '/item/search', body);
+    const ids = new Set((first.items || []).map((r) => r.id));
+    const pages = Array.from({ length: (first.totalPage || 1) - 1 }, (_, i) => i + 2);
+    await pool(pages, async (pg) => {
+      const res = await api('POST', '/item/search', { ...body, page: pg });
+      for (const r of (res && res.items) || []) ids.add(r.id);
+    }, CONCURRENCY, (d, t) => log(`[races:${name}] ${d}/${t} pages`));
+    out[name] = [...ids].sort((a, b) => a - b);
+    log(`[races:${name}] ${out[name].length} items`);
+  }
+  fs.writeFileSync(file, JSON.stringify(out));
+}
+
 // ---------------------------------------------------------------- main
 (async () => {
   log(`lang=${LANG} out=${OUT} stage=${STAGE} concurrency=${CONCURRENCY}`);
@@ -286,5 +304,6 @@ async function stageSpawns() {
   if (run('maps')) await stageMaps();
   if (run('detail')) for (const k of KIND_FILTER) await stageDetail(k);
   if (run('spawns') && STAGE !== 'all') await stageSpawns();
+  if (run('races')) await stageRaces();
   log(`finished. requests=${requestCount}`);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { EntityRow } from '@/components/entity-row';
+import { DEFAULT_ITEM_FILTERS, ItemFilters, toSearchParams } from '@/components/item-filters';
 import { Chip, Empty, Loading } from '@/components/ui';
 import { Colors, FontSize, Radius, Spacing } from '@/constants/theme';
 import { KINDS, type Kind } from '@/db/types';
@@ -13,7 +14,8 @@ export default function SearchScreen() {
   const t = useT();
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<Kind | undefined>(undefined);
-  const params = useMemo(() => ({ query, kind }), [query, kind]);
+  const [filters, setFilters] = useState(DEFAULT_ITEM_FILTERS);
+  const params = useMemo(() => (kind === 'item' ? { query, kind, ...toSearchParams(filters) } : { query, kind }), [query, kind, filters]);
   const { items, loading, loadMore } = useEntityList(params);
   const trimmed = query.trim();
 
@@ -42,6 +44,7 @@ export default function SearchScreen() {
         <Chip label={t.all} active={!kind} onPress={() => setKind(undefined)} />
         {KINDS.map((k) => <Chip key={k} label={t.kinds[k]} active={kind === k} onPress={() => setKind(kind === k ? undefined : k)} />)}
       </ScrollView>
+      {kind === 'item' ? <ItemFilters value={filters} onChange={setFilters} /> : null}
       {loading && items.length === 0 ? (
         <Loading text={t.loading} />
       ) : items.length === 0 ? (

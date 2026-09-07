@@ -5,7 +5,7 @@ import type { Category, EntitySummary, Kind, MapInfo, SearchParams, SpawnPoint }
 
 interface EntityRow {
   kind: Kind; id: number; name: string; level: number | null; quality: number | null;
-  image: string | null; tags: string; sub: string | null;
+  image: string | null; tags: string; sub: string | null; race: number | null;
 }
 
 function rowToSummary(r: EntityRow): EntitySummary {
@@ -13,7 +13,7 @@ function rowToSummary(r: EntityRow): EntitySummary {
   try { tags = JSON.parse(r.tags || '[]'); } catch { /* ignore */ }
   let sub: Record<string, unknown> | null = null;
   if (r.sub) { try { sub = JSON.parse(r.sub); } catch { /* ignore */ } }
-  return { kind: r.kind, id: r.id, name: r.name, level: r.level, quality: r.quality, image: r.image, tags, sub };
+  return { kind: r.kind, id: r.id, name: r.name, level: r.level, quality: r.quality, image: r.image, tags, sub, race: r.race ?? null };
 }
 
 export async function searchEntities(params: SearchParams): Promise<EntitySummary[]> {

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { EntityRow } from '@/components/entity-row';
+import { DEFAULT_ITEM_FILTERS, ItemFilters, toSearchParams } from '@/components/item-filters';
 import { Empty, Loading } from '@/components/ui';
 import { Colors, FontSize, Radius, Spacing } from '@/constants/theme';
 import { getCategories } from '@/db/queries';
@@ -23,6 +24,7 @@ export default function CategoryScreen() {
   const [minLevel, setMinLevel] = useState('');
   const [maxLevel, setMaxLevel] = useState('');
   const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState(DEFAULT_ITEM_FILTERS);
   const parentId = parent ? Number(parent) : 0;
 
   useEffect(() => { getCategories(kind).then(setCats).catch(() => setCats([])); }, [kind, dataVersion]);
@@ -32,9 +34,11 @@ export default function CategoryScreen() {
   const tagsKey = (current?.path ?? []).join('|');
   const params = useMemo(() => ({
     kind, tags: tagsKey ? tagsKey.split('|') : [], query,
-    minLevel: minLevel ? Number(minLevel) : undefined,
-    maxLevel: maxLevel ? Number(maxLevel) : undefined,
-  }), [kind, tagsKey, query, minLevel, maxLevel]);
+    ...(kind === 'item' ? toSearchParams(filters) : {
+      minLevel: minLevel ? Number(minLevel) : undefined,
+      maxLevel: maxLevel ? Number(maxLevel) : undefined,
+    }),
+  }), [kind, tagsKey, query, minLevel, maxLevel, filters]);
   const { items, loading, loadMore } = useEntityList(params);
 
   const header = (
@@ -57,7 +61,7 @@ export default function CategoryScreen() {
           <Ionicons name="search" size={14} color={Colors.textMuted} />
           <TextInput style={styles.input} value={query} onChangeText={setQuery} placeholder={t.filterByName} placeholderTextColor={Colors.textMuted} autoCorrect={false} />
         </View>
-        {kind !== 'title' ? (
+        {kind !== 'title' && kind !== 'item' ? (
           <>
             <View style={styles.inputWrap}>
               <Text style={styles.lvlLabel}>{t.lvl} {t.minLevel}</Text>
@@ -70,6 +74,7 @@ export default function CategoryScreen() {
           </>
         ) : null}
       </View>
+      {kind === 'item' ? <ItemFilters value={filters} onChange={setFilters} /> : null}
     </View>
   );
 

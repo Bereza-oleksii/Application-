@@ -82,6 +82,7 @@ async function buildMain() {
       rowid INTEGER PRIMARY KEY,
       kind TEXT NOT NULL, id INTEGER NOT NULL, name TEXT NOT NULL, level INTEGER, quality INTEGER,
       image TEXT, tags TEXT NOT NULL DEFAULT '[]', sub TEXT,
+      race INTEGER, -- items: bitmask 1 = Elyos, 2 = Asmodian (from the site's race filter)
       UNIQUE (kind, id)
     );
     -- detail JSON is stored in blocks of BLOCK_SIZE consecutive ids: {id: detail, ...} as raw-deflate
@@ -140,6 +141,22 @@ async function buildMain() {
   }
   log(`details raw ${(rawBytes / 1e6).toFixed(1)} MB -> compressed ${(compBytes / 1e6).toFixed(1)} MB`);
 
+  // item race bitmask (language independent; reuse any sibling language dir)
+  let raceFile = path.join(RAW, 'item.races.json');
+  if (!fs.existsSync(raceFile)) for (const d of fs.readdirSync(path.dirname(RAW))) { const c = path.join(path.dirname(RAW), d, 'item.races.json'); if (fs.existsSync(c)) { raceFile = c; break; } }
+  if (fs.existsSync(raceFile)) {
+    const races = JSON.parse(fs.readFileSync(raceFile, 'utf8'));
+    const mask = new Map();
+    for (const id of races.elyos || []) mask.set(id, (mask.get(id) || 0) | 1);
+    for (const id of races.asmodian || []) mask.set(id, (mask.get(id) || 0) | 2);
+    const upd = prep("UPDATE entities SET race = ? WHERE kind = 'item' AND id = ?");
+    db.exec('BEGIN');
+    db.exec("UPDATE entities SET race = 0 WHERE kind = 'item'");
+    for (const [id, m] of mask) upd.run(m, id);
+    db.exec('COMMIT');
+    log(`[races] ${mask.size} items tagged from ${raceFile}`);
+  } else log('[races] item.races.json not found, race filter will be empty');
+
   // categories
   db.exec('BEGIN');
   for (const kind of ['item', 'npc', 'quest', 'skill']) {
@@ -184,7 +201,7 @@ async function buildMain() {
   log(`[maps] ${nm} maps, ${nme} map-entity rows, ${ns} spawn points`);
 
   db.exec(`
-    CREATE INDEX idx_entities_kind_level ON entities (kind, level, quality);
+    CREATE INDEX idx_entities_kind_level ON entities (kind, level, quality, race);
     CREATE INDEX idx_map_entities_ent ON map_entities (kind, id);
     INSERT INTO search(search) VALUES ('rebuild');
     INSERT INTO search(search) VALUES ('optimize');
@@ -194,7 +211,7 @@ async function buildMain() {
   meta.run('source', 'https://db.aiondestiny.net');
   meta.run('built_at', new Date().toISOString());
   meta.run('counts', JSON.stringify(counts));
-  meta.run('schema_version', '3');
+  meta.run('schema_version', '4');
   meta.run('block_size', String(BLOCK_SIZE));
   db.exec('VACUUM');
   db.close();

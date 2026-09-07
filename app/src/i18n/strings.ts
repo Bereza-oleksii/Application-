@@ -39,7 +39,11 @@ const uk = {
   maxLevel: 'до',
   kinds: { item: 'Предмети', npc: 'NPC', quest: 'Квести', skill: 'Уміння', title: 'Титули', harvest: 'Ресурси' } as Record<string, string>,
   kindOne: { item: 'Предмет', npc: 'NPC', quest: 'Квест', skill: 'Уміння', title: 'Титул', harvest: 'Ресурс', map: 'Карта' } as Record<string, string>,
-  qualityNames: ['Мотлох', 'Звичайний', 'Відмінний', 'Героїчний', 'Легендарний', 'Вічний', 'Міфічний'],
+  qualityNames: ['Мотлох', 'Звичайний', 'Рідкісний', 'Легендарний', 'Унікальний', 'Героїчний', 'Міфічний'],
+  elyos: 'Елійці',
+  asmodian: 'Асмодіани',
+  filters: 'Фільтри',
+  reset: 'Скинути',
   f: {
     description: 'Опис',
     restrictions: 'Обмеження',
@@ -144,7 +148,8 @@ const ru: Strings = {
   npcsOnMap: 'NPC на карте', harvestOnMap: 'Ресурсы на карте', filterByName: 'Фильтр по названию…', minLevel: 'от', maxLevel: 'до',
   kinds: { item: 'Предметы', npc: 'NPC', quest: 'Квесты', skill: 'Умения', title: 'Титулы', harvest: 'Ресурсы' },
   kindOne: { item: 'Предмет', npc: 'NPC', quest: 'Квест', skill: 'Умение', title: 'Титул', harvest: 'Ресурс', map: 'Карта' },
-  qualityNames: ['Хлам', 'Обычный', 'Отличный', 'Героический', 'Легендарный', 'Вечный', 'Мифический'],
+  qualityNames: ['Хлам', 'Обычный', 'Редкий', 'Легендарный', 'Уникальный', 'Героический', 'Мифический'],
+  elyos: 'Элийцы', asmodian: 'Асмодиане', filters: 'Фильтры', reset: 'Сбросить',
   f: {
     ...uk.f,
     description: 'Описание', restrictions: 'Ограничения', baseStats: 'Базовые характеристики', bonusStats: 'Бонусы', hideBonusStats: 'Скрытые бонусы',
@@ -181,6 +186,7 @@ const en: Strings = {
   kinds: { item: 'Items', npc: 'NPCs', quest: 'Quests', skill: 'Skills', title: 'Titles', harvest: 'Gathering' },
   kindOne: { item: 'Item', npc: 'NPC', quest: 'Quest', skill: 'Skill', title: 'Title', harvest: 'Gathering', map: 'Map' },
   qualityNames: ['Junk', 'Common', 'Superior', 'Heroic', 'Fabled', 'Eternal', 'Mythic'],
+  elyos: 'Elyos', asmodian: 'Asmodians', filters: 'Filters', reset: 'Reset',
   f: {
     ...uk.f,
     description: 'Description', restrictions: 'Restrictions', baseStats: 'Base stats', bonusStats: 'Bonus stats', hideBonusStats: 'Hidden bonuses',

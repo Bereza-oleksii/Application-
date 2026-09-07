@@ -11,6 +11,8 @@ export interface EntitySummary {
   image: string | null;
   tags: string[];
   sub: Record<string, unknown> | null;
+  /** Items only: bitmask 1 = Elyos, 2 = Asmodian. */
+  race: number | null;
 }
 
 export interface Category {
@@ -55,6 +57,8 @@ export interface SearchParams {
   minLevel?: number;
   maxLevel?: number;
   quality?: number[];
+  /** Bitmask: 1 = Elyos, 2 = Asmodian. */
+  race?: number;
   limit: number;
   offset: number;
 }

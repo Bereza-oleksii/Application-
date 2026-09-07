@@ -6,12 +6,12 @@ export const DATA_BUNDLES: Record<string, number> = {
 export const ASSETS_BUNDLE: number = require('../../assets/db/assets.db');
 export const MANIFEST: Record<string, { size: number; builtAt: string }> = {
   "en": {
-    "size": 42504192,
-    "builtAt": "2026-09-07T01:12:28.316Z"
+    "size": 43503616,
+    "builtAt": "2026-09-07T08:15:19.703Z"
   },
   "ru": {
-    "size": 49750016,
-    "builtAt": "2026-09-06T23:26:37.325Z"
+    "size": 50761728,
+    "builtAt": "2026-09-07T08:14:48.372Z"
   },
   "assets": {
     "size": 42000384,

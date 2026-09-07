@@ -63,7 +63,7 @@ export function RefList({ title, kind, refs, trailing, mapContext }: Props) {
             );
           }
           const e = entities.get(r.id);
-          const summary: EntitySummary = e ?? { kind: kind as Kind, id: r.id, name: `#${r.id}`, level: null, quality: typeof r.quality === 'number' ? r.quality : null, image: null, tags: [], sub: null };
+          const summary: EntitySummary = e ?? { kind: kind as Kind, id: r.id, name: `#${r.id}`, level: null, quality: typeof r.quality === 'number' ? r.quality : null, image: null, tags: [], sub: null, race: null };
           return <EntityRow key={`${r.id}-${i}`} entity={summary} trailing={trailing ? trailing(r) : undefined} />;
         })}
         {list.length > shown ? (

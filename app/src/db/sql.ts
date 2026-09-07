@@ -3,7 +3,7 @@
  */
 import type { SearchParams } from './types';
 
-export const ENTITY_COLS = 'e.kind, e.id, e.name, e.level, e.quality, e.image, e.tags, e.sub';
+export const ENTITY_COLS = 'e.kind, e.id, e.name, e.level, e.quality, e.image, e.tags, e.sub, e.race';
 
 /** Escapes a token for FTS5: wrap in double quotes, optionally add the prefix operator. */
 export function ftsToken(tok: string, prefix: boolean) {
@@ -31,6 +31,7 @@ export function buildSearchQuery(params: SearchParams): { sql: string; bind: (st
   if (params.minLevel !== undefined) { where.push('e.level >= ?'); args.push(params.minLevel); }
   if (params.maxLevel !== undefined) { where.push('e.level <= ?'); args.push(params.maxLevel); }
   if (params.quality && params.quality.length) { where.push(`e.quality IN (${params.quality.map(() => '?').join(',')})`); args.push(...params.quality); }
+  if (params.race !== undefined) { where.push('(e.race & ?) != 0'); args.push(params.race); }
   const hasQuery = tokenize((params.query ?? '').trim()).length > 0;
   if (match) {
     const nameExact = (params.query ?? '').trim().toLowerCase();
